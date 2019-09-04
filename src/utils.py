@@ -17,18 +17,16 @@ def create_inverse_degree_matrix(edges):
     D_1 = sparse.coo_matrix((degs,(ind,ind)),shape=(graph.number_of_nodes(), graph.number_of_nodes()),dtype=np.float32)
     return D_1
 
-def normalize_adjacency(edges):
+def normalize_adjacency(graph):
     """
     Method to calculate a sparse degree normalized adjacency matrix.
     :param edges: Edge list of graph.
     :return A: Normalized adjacency matrix.
     """
-    D_1 = create_inverse_degree_matrix(edges)
-    index_1 = [edge[0] for edge in edges] + [edge[1] for edge in edges]
-    index_2 = [edge[1] for edge in edges] + [edge[0] for edge in edges]
-    values = [1.0 for edge in edges] + [1.0 for edge in edges]
-    A = sparse.coo_matrix((values,(index_1, index_2)),shape=D_1.shape,dtype=np.float32)
-    A = A.dot(D_1)
+    ind = range(len(graph.nodes()))
+    degs = [1.0/graph.degree(node) for node in graph.nodes()]
+    D_1 = sparse.coo_matrix((degs,(ind,ind)),shape=(graph.number_of_nodes(), graph.number_of_nodes()),dtype=np.float32)
+    A = nx.adjacency_matrix(graph).dot(D_1)
     return A
 
 def read_graph(edge_path):
@@ -37,9 +35,10 @@ def read_graph(edge_path):
     :param edge_path: Path to the ege list.
     :return A: Target matrix.
     """
-    edges = pd.read_csv(edge_path).values.tolist()
-    A = normalize_adjacency(edges)
-    return A
+    edges = pd.read_csv(edge_path)
+    graph = nx.from_pandas_edgelist(edges, source="id_1", target="id_2", edge_attr="weight")
+    A = normalize_adjacency(graph)
+    return A, graph.nodes()
 
 def tab_printer(args):
     """

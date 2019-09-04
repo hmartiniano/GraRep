@@ -7,8 +7,8 @@ def learn_model(args):
     Method to create adjacency matrix powers, read features, and learn embedding.
     :param args: Arguments object.
     """
-    A = read_graph(args.edge_path)
-    model = GraRep(A, args)
+    A, nodes = read_graph(args.edge_path)
+    model = GraRep(A, nodes, args)
     model.optimize()
     model.save_embedding()
 

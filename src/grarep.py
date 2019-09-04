@@ -1,9 +1,10 @@
 import math
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+#from tqdm import tqdm
 from scipy import sparse
 from sklearn.decomposition import TruncatedSVD
+
 
 class GraRep(object):
     """
@@ -11,22 +12,24 @@ class GraRep(object):
     A sparsity aware implementation of GraRep.
     For details see the paper: https://dl.acm.org/citation.cfm?id=2806512
     """
-    def __init__(self, A, args):
+    def __init__(self, A, nodes, args):
         """
         :param A: Adjacency matrix.
         :param args: Arguments object.
         """
         self.A = A
+        self.nodes = nodes
         self.args = args
-        self._setup_base_target_matrix()
+        self.A_hat = A.copy()
+        #self._setup_base_target_matrix()
 
     def _setup_base_target_matrix(self):
         """
         Creating a base matrix to multiply.
         """
-        values = [1.0 for i in range(self.A.shape[0])]
-        indices = [i for i in range(self.A.shape[0])]
-        self.A_hat = sparse.coo_matrix((values, (indices,indices)),shape=self.A.shape,dtype=np.float32)
+        values = self.A.data
+        indices = self.A.nonzero()
+        self.A_hat = sparse.csr_matrix((values, indices),shape=self.A.shape,dtype=np.float32)
 
     def _create_target_matrix(self):
         """
@@ -38,7 +41,7 @@ class GraRep(object):
         rows = self.A_hat.row[scores<0]
         cols = self.A_hat.col[scores<0]
         scores = scores[scores<0]
-        target_matrix = sparse.coo_matrix((scores, (rows,cols)),shape=self.A.shape,dtype=np.float32)
+        target_matrix = sparse.csr_matrix((scores, (rows,cols)), shape=self.A.shape, dtype=np.float32)
         return target_matrix
 
     def optimize(self):
@@ -47,7 +50,7 @@ class GraRep(object):
         """
         print("\nOptimization started.\n")
         self.embeddings = []
-        for step in tqdm(range(self.args.order)):
+        for step in range(self.args.order):
             target_matrix = self._create_target_matrix()
             svd = TruncatedSVD(n_components=self.args.dimensions, n_iter=self.args.iterations, random_state=self.args.seed)
             svd.fit(target_matrix)
@@ -61,8 +64,8 @@ class GraRep(object):
         print("\nSave embedding.\n")
         self.embeddings = np.concatenate(self.embeddings,axis=1)
         column_count = self.args.order*self.args.dimensions
-        columns = ["ID"] + ["x_" + str(col) for col in range(column_count)]
-        ids = np.array([i for i in range(self.A.shape[0])]).reshape(-1,1)
-        self.embeddings = np.concatenate([ids, self.embeddings],axis=1)
-        self.embeddings = pd.DataFrame(self.embeddings, columns=columns)
+        columns = ["x_" + str(col) for col in range(column_count)]
+        #ids = np.array([i for i in range(self.A.shape[0])]).reshape(-1,1)
+        #self.embeddings = np.concatenate([self.nodes.T, self.embeddings],axis=1)
+        self.embeddings = pd.DataFrame(self.embeddings, index=self.nodes, columns=columns)
         self.embeddings.to_csv(self.args.output_path, index=None)
